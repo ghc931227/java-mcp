@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JavaTool MCP 控制台</title>
+<script src="https://unpkg.com/vue@3.4.38/dist/vue.global.prod.js"></script>
+<script src="https://unpkg.com/element-plus@2.8.8/dist/index.full.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/element-plus@2.8.8/dist/index.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body, #app { height: 100%; margin: 0; }
+  body { font-family: "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f7fa; }
+  .layout { display: flex; height: 100%; }
+  .sidebar { width: 200px; background: #1d2535; color: #cfd6e4; flex-shrink: 0; display: flex; flex-direction: column; }
+  .logo { padding: 16px 18px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .logo .t1 { font-size: 15px; font-weight: 700; color: #fff; }
+  .logo .t2 { font-size: 11px; color: #7d8aa5; margin-top: 3px; }
+  .menu { flex: 1; padding: 8px 0; overflow-y: auto; }
+  .menu-item { padding: 11px 18px; cursor: pointer; font-size: 14px; border-left: 3px solid transparent; }
+  .menu-item:hover { background: rgba(255,255,255,.05); color: #fff; }
+  .menu-item.active { background: rgba(64,158,255,.14); border-left-color: #409eff; color: #fff; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .header { height: 50px; background: #fff; border-bottom: 1px solid #e4e7ed; display: flex; align-items: center; padding: 0 20px; gap: 10px; flex-shrink: 0; }
+  .header .spacer { flex: 1; }
+  .content { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .panel { background: #fff; border-radius: 8px; border: 1px solid #ebeef5; padding: 14px 16px; margin-bottom: 14px; }
+  .panel-title { font-size: 14px; font-weight: 600; color: #303133; margin-bottom: 12px; }
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+  .stat-card { background: #fff; border-radius: 8px; padding: 14px 16px; border: 1px solid #ebeef5; }
+  .stat-card .label { font-size: 12px; color: #909399; }
+  .stat-card .value { font-size: 24px; font-weight: 700; color: #303133; margin-top: 4px; }
+  .code-block { background: #f4f6f9; border: 1px solid #e4e7ed; border-radius: 6px; padding: 10px 12px; font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; max-height: 420px; overflow: auto; }
+  .tool-item { border: 1px solid #ebeef5; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .tool-item:hover { border-color: #409eff; background: #f0f7ff; }
+  .tool-item .nm { font-family: Consolas, monospace; font-size: 13px; font-weight: 600; color: #303133; }
+  .tool-item .ds { font-size: 12px; color: #909399; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-line .time { color: #6b7a93; }
+  .log-view { background: #10141d; color: #c7d0de; font-family: Consolas, monospace; font-size: 12px; line-height: 1.7; border-radius: 6px; padding: 10px 12px; height: 500px; overflow-y: auto; white-space: pre-wrap; }
+  .kv { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #ebeef5; font-size: 13px; }
+  /* ---- 连接管理 / SQL / 命令 / 文件浏览器 ---- */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+  .sql-editor { width: 100%; height: 150px; border: 1px solid #dcdfe6; border-radius: 6px; font-family: Consolas, monospace; font-size: 13px; padding: 10px 12px; resize: vertical; outline: none; }
+  .sql-editor:focus { border-color: #409eff; }
+  .filetree { background: #fff; border: 1px solid #ebeef5; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+  .ft-item { cursor: pointer; display: flex; align-items: center; padding: 4px 8px; font-family: Consolas, monospace; font-size: 13px; border-radius: 4px; }
+  .ft-item:hover { background: #f0f7ff; }
+  .ft-item.active { background: #dcecff; color: #409eff; }
+  .ft-ico { margin-right: 5px; }
+  .kv-table td, .kv-table th { font-size: 12px; }
+  /* 工具调用器下拉选项：名称 + 描述单行截断，面板宽度与输入框一致 */
+  .tool-opt { display: flex; align-items: center; gap: 10px; overflow: hidden; }
+  .tool-opt-name { font-family: Consolas, monospace; font-weight: 600; flex-shrink: 0; }
+  .tool-opt-desc { color: #909399; font-size: 12px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 登录/禁用 -->
+  <div v-if="!ready" style="height:100%;display:flex;align-items:center;justify-content:center">
+    <el-card style="width:380px">
+      <template #header><b>JavaTool MCP 控制台</b></template>
+      <el-alert v-if="!info.enabled" type="error" :closable="false" show-icon
+                title="控制台未启用" description="请设置 CONSOLE_TOKEN 环境变量后重启服务。"></el-alert>
+      <template v-else>
+        <el-input v-model="token" type="password" show-password placeholder="请输入 CONSOLE_TOKEN"
+                  @keyup.enter="login"></el-input>
+        <el-button type="primary" style="margin-top:12px;width:100%" @click="login">进入控制台</el-button>
+      </template>
+    </el-card>
+  </div>
+
+  <!-- 主界面 -->
+  <div v-else class="layout">
+    <div class="sidebar">
+      <div class="logo"><div class="t1">JavaTool MCP</div><div class="t2">Web 控制台</div></div>
+      <div class="menu">
+        <div v-for="m in menus" :key="m.key" class="menu-item" :class="{active:page===m.key}" @click="page=m.key">
+          {{ m.label }}</div>
+      </div>
+    </div>
+    <div class="main">
+      <div class="header">
+        <b style="font-size:15px">{{ currentMenu }}</b>
+        <div class="spacer"></div>
+        <el-tag size="small" :type="status.mode==='dev'?'warning':'success'">{{ status.mode==='dev'?'开发模式':'生产模式' }}</el-tag>
+        <el-tag size="small" type="info">PID {{ status.pid }}</el-tag>
+        <el-tag size="small">{{ status.toolCount }} 工具</el-tag>
+      </div>
+      <div class="content">
+
+        <!-- 仪表盘 -->
+        <template v-if="page==='status'">
+          <div class="stat-row">
+            <div class="stat-card"><div class="label">运行模式</div><div class="value">{{ status.mode==='dev'?'开发':'生产' }}</div></div>
+            <div class="stat-card"><div class="label">运行时间</div><div class="value">{{ fmtUptime }}</div></div>
+            <div class="stat-card"><div class="label">已注册工具</div><div class="value">{{ status.toolCount }}</div></div>
+            <div class="stat-card"><div class="label">进程 PID</div><div class="value" style="font-family:Consolas">{{ status.pid }}</div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">数据库连接（{{ connections.length }}）</div>
+            <el-table :data="connections" size="small">
+              <el-table-column prop="name" label="名称" width="150"></el-table-column>
+              <el-table-column prop="databaseType" label="类型" width="110"></el-table-column>
+              <el-table-column prop="host" label="主机"></el-table-column>
+              <el-table-column prop="database" label="数据库"></el-table-column>
+            </el-table>
+          </div>
+          <div class="panel">
+            <div class="panel-title">自定义命令（{{ commands.length }}）</div>
+            <el-table :data="commands" size="small">
+              <el-table-column prop="name" label="命令名" width="180"></el-table-column>
+              <el-table-column prop="description" label="描述"></el-table-column>
+            </el-table>
+          </div>
+        </template>
+
+        <!-- 工具调用器 -->
+        <template v-if="page==='tools'">
+          <div class="panel">
+            <div class="panel-title">工具选择</div>
+            <el-select v-model="selectedTool" filterable size="large" style="width:100%" fit-input-width
+                       placeholder="搜索并选择一个工具" @change="onToolSelect">
+              <el-option v-for="t in tools" :key="t.name" :label="t.name" :value="t.name">
+                <div class="tool-opt">
+                  <span class="tool-opt-name">{{ t.name }}</span>
+                  <span class="tool-opt-desc">{{ t.description || '' }}</span>
+                </div>
+              </el-option>
+            </el-select>
+          </div>
+          <div v-if="activeTool" class="panel">
+            <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-family:Consolas">{{ activeTool.name }}</span>
+              <div><el-button size="small" type="primary" :loading="invoking" @click="invoke">▶ 调用</el-button></div>
+            </div>
+            <el-descriptions :column="1" :title="''" size="small">
+              <el-descriptions-item label="描述">{{ activeTool.description }}</el-descriptions-item>
+            </el-descriptions>
+
+            <div style="margin-top:12px" v-if="Object.keys(schemaProps).length">
+              <div v-for="(p,key) in schemaProps" :key="key" style="margin-bottom:12px">
+                <label style="display:block;font-size:13px;margin-bottom:4px">{{ key }} <span v-if="p.required" style="color:#f56c6c">*</span>
+                  <span style="color:#909399;font-size:12px">({{ pType(p) }})</span> <span v-if="p.description" style="color:#c0c4cc;font-size:12px">— {{ p.description }}</span></label>
+                <el-input v-if="p.type==='string' && isLongText(key,p)" type="textarea" :rows="6" v-model="form[key]"></el-input>
+                <el-input v-else-if="p.type==='string'" v-model="form[key]" size="small" @change="form[key]=String(form[key])"></el-input>
+                <el-input-number v-else-if="p.type==='integer'||p.type==='number'" v-model="form[key]" size="small"></el-input-number>
+                <el-switch v-else-if="p.type==='boolean'" v-model="form[key]" size="small"></el-switch>
+                <el-select v-else-if="p.type==='array' && p.items && p.items.type==='string'" v-model="form[key]" multiple size="small" allow-create filterable default-first-option style="width:100%" placeholder="可选择或输入（回车确认）"></el-select>
+                <el-input v-else-if="p.type==='object'" v-model="form[key]" size="small" type="textarea" :rows="4"></el-input>
+                <el-input v-else v-model="form[key]" size="small"></el-input>
+              </div>
+            </div>
+          </div>
+          <div v-if="activeTool && Object.keys(schemaProps).length===0" class="panel"><span style="color:#909399">该工具无参数，可直接调用。</span></div>
+
+          <div v-if="resultJson" class="panel">
+            <div class="panel-title">{{ resultOk?'调用成功':'调用失败' }} · {{ lastCost }}ms</div>
+            <div class="code-block" :style="{color: resultOk?'inherit':'#f56c6c'}">{{ resultJson }}</div>
+          </div>
+        </template>
+
+        <!-- 连接管理 -->
+        <template v-if="page==='conn'">
+          <div class="panel">
+            <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+              <span>数据库连接管理</span>
+              <el-button size="small" type="primary" @click="openConnDialog()">＋ 新建连接</el-button>
+            </div>
+            <el-table :data="connections" size="small" style="width:100%">
+              <el-table-column prop="name" label="名称" width="140"></el-table-column>
+              <el-table-column prop="databaseType" label="类型" width="100">
+                <template #default="s"><el-tag size="small">{{ s.row.databaseType }}</el-tag></template>
+              </el-table-column>
+              <el-table-column label="主机:端口" min-width="170">
+                <template #default="s">{{ s.row.host }}:{{ s.row.port }}</template>
+              </el-table-column>
+              <el-table-column prop="database" label="数据库" width="120"></el-table-column>
+              <el-table-column label="连接池(活跃/空闲)" width="140">
+                <template #default="s">
+                  <span v-if="pool[s.row.id] && pool[s.row.id].initialized">
+                    {{ pool[s.row.id].activeCount }} / {{ pool[s.row.id].idleCount }}
+                  </span>
+                  <span v-else style="color:#c0c4cc">未初始化</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="200">
+                <template #default="s">
+                  <el-button size="small" text type="success" @click="testConn(s.row)">测试</el-button>
+                  <el-button size="small" text type="primary" @click="openConnDialog(s.row)">编辑</el-button>
+                  <el-button size="small" text type="danger" @click="delConn(s.row)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
+          <el-dialog v-model="connDlg" :title="connForm.id?'编辑连接':'新建连接'" width="520px">
+            <div class="grid-2">
+              <el-form label-width="90px" label-position="left">
+                <el-form-item label="名称"><el-input v-model="connForm.name" size="small"></el-input></el-form-item>
+                <el-form-item label="类型">
+                  <el-select v-model="connForm.databaseType" size="small" style="width:100%">
+                    <el-option v-for="t in dbTypes" :key="t" :value="t" :label="t"></el-option>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="主机"><el-input v-model="connForm.host" size="small"></el-input></el-form-item>
+                <el-form-item label="端口"><el-input-number v-model="connForm.port" size="small" :min="1" :max="65535"></el-input-number></el-form-item>
+                <el-form-item label="数据库"><el-input v-model="connForm.database" size="small"></el-input></el-form-item>
+                <el-form-item label="用户名"><el-input v-model="connForm.username" size="small"></el-input></el-form-item>
+                <el-form-item label="密码"><el-input v-model="connForm.password" type="password" show-password size="small"></el-input></el-form-item>
+              </el-form>
+            </div>
+            <template #footer>
+              <el-button size="small" @click="connDlg=false">取消</el-button>
+              <el-button size="small" type="primary" @click="saveConn">保存</el-button>
+            </template>
+          </el-dialog>
+        </template>
+
+        <!-- SQL 工作台 -->
+        <template v-if="page==='sql'">
+          <div class="panel">
+            <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+              <span>SQL 工作台</span>
+              <div style="display:flex;gap:8px;align-items:center">
+                <el-select v-model="sqlConnId" size="small" style="width:180px" placeholder="选择连接">
+                  <el-option v-for="c in connections" :key="c.id" :label="c.name" :value="c.id"></el-option>
+                </el-select>
+                <el-button size="small" type="primary" :loading="sqlLoading" @click="runSql">▶ 执行</el-button>
+              </div>
+            </div>
+            <textarea class="sql-editor" v-model="sqlText" placeholder="SELECT ..."></textarea>
+            <div style="margin-top:8px;display:flex;gap:10px;align-items:center">
+              <span style="font-size:12px;color:#909399">超时(秒)</span>
+              <el-input-number v-model="sqlTimeout" size="small" :min="1" :max="1800" style="width:120px"></el-input-number>
+              <el-switch v-model="sqlInTx" active-text="事务模式" size="small"></el-switch>
+              <template v-if="sqlInTx">
+                <el-button size="small" type="warning" @click="tx('jdbc-tx-begin')">开启事务</el-button>
+              </template>
+            </div>
+            <div v-if="sqlMsg" class="result-meta" style="font-size:13px;color:#606266;margin-top:8px">{{ sqlMsg }}</div>
+            <el-table v-if="sqlCols.length" :data="sqlRows" size="small" border style="margin-top:8px" max-height="420">
+              <el-table-column v-for="c in sqlCols" :key="c" :prop="c" :label="c" ></el-table-column>
+            </el-table>
+          </div>
+        </template>
+
+        <!-- 命令 / Java 执行 -->
+        <template v-if="page==='cmd'">
+          <div class="panel">
+            <div class="panel-title">注册 / 编辑自定义命令</div>
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+              <el-input v-model="cmdForm.name" size="small" placeholder="命令名（成为工具名）" style="width:200px"></el-input>
+              <el-input v-model="cmdForm.description" size="small" placeholder="描述" style="flex:1"></el-input>
+            </div>
+            <textarea class="sql-editor" v-model="cmdForm.javaCode" style="height:180px"
+                      placeholder="Java 代码片段或完整类（含 execute(Map) 方法）"></textarea>
+            <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+              <el-input v-model="cmdForm.jarPathsText" size="small" placeholder="外部 JAR 路径，逗号分隔（可选）" style="flex:1"></el-input>
+              <el-button size="small" type="primary" @click="saveCmd">保存命令</el-button>
+            </div>
+          </div>
+
+          <div class="grid-3-2">
+            <div class="panel">
+              <div class="panel-title">已有命令（{{ commandNames.length }}）</div>
+              <el-table :data="commandRows" size="small">
+                <el-table-column prop="name" label="命令名" width="160">
+                  <template #default="s"><span style="font-family:Consolas">{{ s.row.name }}</span></template>
+                </el-table-column>
+                <el-table-column prop="description" label="描述"></el-table-column>
+                <el-table-column label="操作" width="130">
+                  <template #default="s">
+                    <el-button size="small" text type="primary" @click="loadCmdToForm(s.row.name)">编辑</el-button>
+                    <el-button size="small" text type="danger" @click="deleteCommand(s.row.name)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+            <div class="panel">
+              <div class="panel-title">java-exec 即席执行</div>
+              <textarea class="sql-editor" v-model="javaExecCode" style="height:120px" placeholder="// 返回一段结果"></textarea>
+              <el-input v-model="javaExecJars" size="small" style="margin-top:8px" placeholder="外部 JAR 路径，逗号分隔"></el-input>
+              <el-button size="small" type="primary" style="margin-top:8px" @click="runJavaExec">▶ 执行</el-button>
+              <div v-if="javaExecResult" class="code-block" style="margin-top:8px">{{ javaExecResult }}</div>
+            </div>
+          </div>
+        </template>
+
+        <!-- 项目文件 (dev) -->
+        <template v-if="page==='dev'">
+          <el-alert v-if="extraTools===false && status.mode==='prod'" type="warning" :closable="false" show-icon
+                    style="margin-bottom:12px" title="生产模式未注册 dev_* 工具，此页面仅开发模式(quarkus:dev)可用。"></el-alert>
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <div class="filetree" style="width:300px">
+              <div style="padding:10px 12px;border-bottom:1px solid #ebeef5;font-size:13px;font-weight:600;display:flex;justify-content:space-between">
+                <span>📁 src/</span>
+                <el-button size="small" text type="primary" @click="loadDevLs">刷新</el-button>
+              </div>
+              <div style="padding:8px;max-height:520px;overflow:auto">
+                <div v-for="f in devTree" :key="f.path" class="ft-item" :class="{active: devPath===f.path}"
+                     :style="{paddingLeft:(f.depth*14)+8+'px'}" @click="devClick(f)">
+                  <span class="ft-ico">{{ f.dir ? '📁':'📄' }}</span>{{ f.name }}</div>
+              </div>
+            </div>
+            <div style="flex:1;background:#fff;border:1px solid #ebeef5;border-radius:8px;overflow:hidden;min-width:0">
+              <div style="padding:8px 12px;border-bottom:1px solid #ebeef5;display:flex;justify-content:space-between;align-items:center">
+                <span style="font-family:Consolas;font-size:13px">{{ devPath || '选择一个文件' }}</span>
+                <div>
+                  <el-button size="small" text :disabled="!devPath || devDir" @click="devEditSave">💾 保存(dev_edit)</el-button>
+                </div>
+              </div>
+              <textarea v-model="devContent" :disabled="!devPath || devDir" class="sql-editor" style="height:500px;border:none;border-radius:0;resize:none"></textarea>
+            </div>
+          </div>
+        </template>
+
+        <!-- 日志 -->
+        <template v-if="page==='log'">
+          <div class="panel" style="margin-bottom:10px">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <el-select v-model="logFile" size="small" style="width:190px" @change="loadLog()">
+                <el-option v-for="f in logFiles" :key="f.name" :label="f.name + ' ('+fmtSize(f.size)+')'" :value="f.name"></el-option>
+              </el-select>
+              <el-input v-model="logKeyword" size="small" placeholder="关键字过滤" style="width:200px" clearable @change="loadLog()"></el-input>
+              <div style="flex:1"></div>
+              <el-switch v-model="logLive" active-text="实时" size="small" @change="onLive"></el-switch>
+              <el-button size="small" @click="loadLog()">刷新</el-button>
+            </div>
+          </div>
+          <div class="log-view" ref="logView">
+            <div v-for="(l,i) in logLines" :key="i" class="log-line"><span class="time">{{ l }}</span></div>
+          </div>
+        </template>
+
+        <!-- 调用历史 -->
+        <template v-if="page==='history'">
+          <div class="panel">
+            <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+              <span>工具调用历史</span>
+              <el-button size="small" type="danger" plain @click="clearHistory">清空</el-button>
+            </div>
+            <el-table :data="history" size="small" style="width:100%">
+              <el-table-column prop="time" label="时间" width="80"></el-table-column>
+              <el-table-column prop="tool" label="工具" width="170">
+                <template #default="s"><span style="font-family:Consolas">{{ s.row.tool }}</span></template>
+              </el-table-column>
+              <el-table-column prop="source" label="来源" width="90"></el-table-column>
+              <el-table-column label="耗时" width="90"><template #default="s">{{ s.row.costMs }} ms</template></el-table-column>
+              <el-table-column label="状态" width="80">
+                <template #default="s">
+                  <el-tag size="small" :type="s.row.ok?'success':'danger'">{{ s.row.ok?'成功':'失败' }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="参数/结果" min-width="260">
+                <template #default="s">
+                  <span style="font-size:12px;color:#606266">{{ shortStr(s.row.params) }}{{ s.row.error ? ' ⚠ '+s.row.error : '' }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </template>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  if (window.__javaMcpConsoleMounted) return; // 防止重复加载/重复声明
+  window.__javaMcpConsoleMounted = true;
+  const { createApp } = Vue;
+  const app = createApp({
+  data() {
+    return {
+      ready: false, token: localStorage.getItem('console_token') || '',
+      info: { enabled: true, tokenConfigured: false },
+      page: 'status',
+      menus: [
+        { key: 'status', label: '📊 仪表盘' },
+        { key: 'tools', label: '🧰 工具调用器' },
+        { key: 'conn', label: '🗄️ 连接管理' },
+        { key: 'sql', label: '📝 SQL 工作台' },
+        { key: 'cmd', label: '⚙️ 命令/Java' },
+        { key: 'log', label: '📜 日志中心' },
+        { key: 'history', label: '🕘 调用历史' },
+        { key: 'dev', label: '📁 项目文件' },
+      ],
+      status: { mode: 'prod', pid: '-', toolCount: 0 },
+      connections: [], commands: [], tools: [], pool: {},
+      selectedTool: '', activeTool: null, form: {}, schemaProps: [],
+      resultJson: '', resultOk: true, lastCost: 0, invoking: false,
+      logFiles: [], logFile: 'mcp.log', logLines: [], logKeyword: '', logLive: false,
+      history: [], _logTimer: null, _logSize: 0,
+      // 连接管理
+      connDlg: false, dbTypes: ['MYSQL','POSTGRESQL','ORACLE','SQLSERVER','H2','OTHER'],
+      connForm: { id:null, name:'', databaseType:'MYSQL', host:'localhost', port:3306, database:'', username:'', password:'' },
+      // SQL 工作台
+      sqlConnId: null, sqlText: 'SELECT * FROM DUAL', sqlTimeout: 180, sqlInTx: false,
+      sqlLoading: false, sqlMsg: '', sqlCols: [], sqlRows: [], sqlResult: null,
+      // 命令 / Java
+      cmdForm: { name:'', description:'', javaCode:'', jarPathsText:'' },
+      commandNames: [], commandRows: [],
+      javaExecCode: 'return Map.of("palua-token", Runtime.version().feature());',
+      javaExecJars: '', javaExecResult: '',
+      // 项目文件 dev
+      devTree: [], devPath: '', devDir: false, devContent: '', extraTools: true,
+    };
+  },
+  computed: {
+    currentMenu() { const m = this.menus.find(x => x.key === this.page); return m ? m.label : ''; },
+    fmtUptime() {
+      const s = Math.floor((this.status.uptimeMs||0)/1000);
+      const d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60);
+      return d + '天 ' + h + '时 ' + m + '分';
+    },
+  },
+  async mounted() {
+    try {
+      this.info = await this.fetchJson('/api/auth/info', 'GET', true);
+    } catch (e) { /* server down */ }
+    // 从 URL 参数 ?t=xxx 读取 token（如果存在）
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('t');
+    if (urlToken) {
+      this.token = urlToken;
+      localStorage.setItem('console_token', urlToken);
+    }
+    if (this.info.enabled && (!this.info.tokenConfigured || this.token)) {
+      // 未配置 token 可直接进入；配置了 token 则需先登录
+      if (!this.info.tokenConfigured) this.enter();
+      else if (urlToken) this.login(); // URL 携带 token 时自动登录
+    }
+  },
+  methods: {
+    async login() {
+      localStorage.setItem('console_token', this.token);
+      try { await this.fetchJson('/api/status'); this.enter(); }
+      catch (e) { ElementPlus.ElMessage.error('Token 无效：' + e.message); }
+    },
+    enter() {
+      this.ready = true;
+      this.refreshStatus(); this.loadTools(); this.loadLogFiles(); this.loadLog(); this.refreshHistory();
+      this.refreshMeta(); this.loadConnPool(); this.loadCommands(); this.loadDevLs();
+      setTimeout(() => this.refreshMeta(), 0);
+      // 定时刷新运行状态，保证仪表盘运行时间等指标持续更新
+      if (!this._statusTimer) this._statusTimer = setInterval(() => { if (this.ready) this.refreshStatus(); }, 30000);
+    },
+    async fetchJson(url, method = 'GET', noAuth = false, body = null) {
+      const headers = {};
+      if (!noAuth) headers['Authorization'] = 'Bearer ' + localStorage.getItem('console_token');
+      const opts = { method, headers };
+      if (body != null) { headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+      const res = await fetch(url, opts);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.message || (res.status + ' ' + url));
+      return json;
+    },
+    async refreshMeta() {
+      try { this.connections = await this.fetchJson('/api/meta/connections'); } catch (e) {}
+      try { this.commands = await this.fetchJson('/api/meta/commands'); } catch (e) {}
+    },
+    async loadConnPool() {
+      try {
+        const pool = await this.fetchJson('/api/meta/pool');
+        this.pool = pool || {};
+      } catch (e) {}
+    },
+    async refreshStatus() { try { this.status = await this.fetchJson('/api/status'); this.extraTools = !this.status || /dev/.test(this.status.mode); } catch (e) { this.onAuthErr(e); } },
+    async loadTools() { try { this.tools = await this.fetchJson('/api/tools'); } catch (e) { this.onAuthErr(e); } },
+    async loadLogFiles() { try { this.logFiles = await this.fetchJson('/api/logs/files'); if (this.logFiles.length && !this.logFiles.some(f=>f.name===this.logFile)) this.logFile = this.logFiles[0].name; } catch (e) {} },
+    async loadLog(increment = false) {
+      try {
+        const opts = ['file=' + this.logFile, 'tail=200'];
+        if (increment && this._logSize) opts.push('offset=' + this._logSize);
+        if (this.logKeyword) opts.push('keyword=' + encodeURIComponent(this.logKeyword));
+        const data = await this.fetchJson('/api/logs?' + opts.join('&'));
+        if (increment && this._logSize && data.size > this._logSize) {
+          this.logLines.push(...data.lines);
+        } else {
+          this.logLines = data.lines.slice();
+        }
+        this._logSize = data.size;
+        if (this.logLines.length > 1000) this.logLines = this.logLines.slice(-1000);
+        this.$nextTick(() => { if (this.$refs.logView) this.$refs.logView.scrollTop = this.$refs.logView.scrollHeight; });
+      } catch (e) { this.onAuthErr(e); }
+    },
+    onLive(v) { if (this._logTimer) { clearInterval(this._logTimer); this._logTimer = null; } if (v) this._logTimer = setInterval(() => { if (this.page === 'log' && !this.logKeyword) this.loadLog(true); }, 2000); },
+    onToolSelect(name) {
+      this.activeTool = this.tools.find(t => t.name === name);
+      this.form = {}; this.resultJson = ''; this.schemaProps = this.extractProps(this.activeTool.inputSchema);
+    },
+    extractProps(schema) {
+      const props = schema && schema.properties ? schema.properties : {};
+      const required = (schema && Array.isArray(schema.required)) ? schema.required : [];
+      const out = {};
+      for (const k in props) {
+        const p = props[k] || {};
+        out[k] = { ...p, required: required.includes(k), defaultValue: p.defaultValue };
+        const v = p.type;
+        this.form[k] = v === 'boolean' ? false : (v === 'integer' || v === 'number' ? undefined : (v === 'array' ? [] : (p.defaultValue ?? '')));
+      }
+      return out;
+    },
+    pType(p) { return p.type || 'string'; },
+    // 长文本参数用 textarea 渲染：按参数名识别（SQL/代码/文件内容等）
+    isLongText(key, p) {
+      if (p.type !== 'string') return false;
+      const k = String(key).toLowerCase();
+      return ['sql', 'code', 'content', 'script', 'text', 'body', 'template'].includes(k);
+    },
+    async invoke() {
+      const args = {};
+      for (const k in this.schemaProps) {
+        const p = this.schemaProps[k];
+        let v = this.form[k];
+        if (p.type === 'object') { try { v = v ? JSON.parse(v) : null; } catch (e) { ElementPlus.ElMessage.error('参数 ' + k + ' 不是合法 JSON'); return; } }
+        // 跳过未填写的非必填参数，避免空字符串/空值覆盖默认行为
+        if (v === '' || v === null || v === undefined) continue;
+        args[k] = v;
+      }
+      this.invoking = true; const t0 = Date.now();
+      try {
+        const r = await this.fetchJson('/api/tools/' + this.activeTool.name + '/invoke', 'POST', false, { arguments: args });
+        this.resultJson = JSON.stringify(r.result, null, 2);
+        this.resultOk = true;
+      } catch (e) {
+        this.resultJson = e.message; this.resultOk = false; this.onAuthErr(e);
+      }
+      this.lastCost = Date.now() - t0;
+      this.invoking = false;
+      this.refreshHistory();
+    },
+    async refreshHistory() { try { this.history = await this.fetchJson('/api/history'); } catch (e) {} },
+    async clearHistory() { try { await this.fetchJson('/api/history', 'DELETE'); this.history = []; } catch (e) {} },
+    shortStr(o) { const s = typeof o === 'string' ? o : JSON.stringify(o); return (s||'').slice(0, 90); },
+    fmtSize(n) { if (n < 1024) return n + 'B'; if (n < 1048576) return (n/1024).toFixed(1) + 'KB'; return (n/1048576).toFixed(1) + 'MB'; },
+
+    // ---- 工具通用调用（返回包装后的 result）----
+    async invokeTool(name, args) {
+      const r = await this.fetchJson('/api/tools/' + name + '/invoke', 'POST', false, { arguments: args || {} });
+      if (!r.ok) throw new Error(r.error || 'tool failed');
+      return r.result;
+    },
+
+    // ---- 连接管理 ----
+    openConnDialog(row) {
+      if (row) {
+        this.connForm = { id: row.id, name: row.name, databaseType: row.databaseType,
+          host: row.host, port: row.port, database: row.database, username: '', password: '' };
+      } else {
+        this.connForm = { id: null, name:'', databaseType:'MYSQL', host:'localhost', port:3306, database:'', username:'', password:'' };
+      }
+      this.connDlg = true;
+    },
+    async saveConn() {
+      try {
+        const args = {
+          name: this.connForm.name, databaseType: this.connForm.databaseType,
+          host: this.connForm.host, port: Number(this.connForm.port) || 0,
+          database: this.connForm.database, username: this.connForm.username,
+          password: this.connForm.password,
+        };
+        if (this.connForm.id) args.id = this.connForm.id;
+        const tool = this.connForm.id ? 'jdbc-edit-conn' : 'jdbc-add-conn';
+        await this.invokeTool(tool, args);
+        ElementPlus.ElMessage.success('已保存连接');
+        this.connDlg = false;
+        this.refreshMeta(); this.loadConnPool();
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+    },
+    // 探活 SQL：按数据库类型选择。Oracle 及其兼容库（达梦）无 FROM 的裸 SELECT 会报错
+    probeSqlOf(databaseType) {
+      const t = String(databaseType || '').toUpperCase();
+      switch (t) {
+        case 'ORACLE':
+        case 'DM':
+          return 'SELECT 1 FROM dual';
+        case 'CUSTOM':
+        default: // MYSQL/MARIADB/POSTGRESQL/SQLSERVER/H2/SQLITE/KINGBASE(PG 系) 均支持
+          return 'SELECT 1';
+      }
+    },
+    async testConn(row) {
+      // 始终执行一次真实查询，避免池已初始化但实际不可用时误报成功
+      try {
+        await this.invokeTool('jdbc-query', { connectionId: String(row.id), sql: this.probeSqlOf(row.databaseType), maxRows: 1 });
+        const p = await this.fetchJson('/api/meta/pool/' + row.id);
+        ElementPlus.ElMessage.success('连接成功' + (p && p.initialized ? '（活跃 ' + p.activeCount + ' / 空闲 ' + p.idleCount + '）' : ''));
+        this.loadConnPool();
+      } catch (e) {
+        ElementPlus.ElMessage.warning('连接测试失败：' + e.message);
+        this.loadConnPool();
+      }
+    },
+    async delConn(row) {
+      try {
+        await this.invokeTool('jdbc-del-conn', { id: row.id });
+        ElementPlus.ElMessage.success('已删除连接');
+        this.refreshMeta();
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+    },
+
+    // ---- SQL 工作台 ----
+    async runSql() {
+      if (!this.sqlConnId) { ElementPlus.ElMessage.warning('请先选择连接'); return; }
+      this.sqlLoading = true; this.sqlMsg = ''; this.sqlCols = []; this.sqlRows = [];
+      const t0 = Date.now();
+      try {
+        const result = await this.invokeTool('jdbc-query', {
+          connectionId: String(this.sqlConnId), sql: this.sqlText,
+          timeoutSeconds: this.sqlTimeout, maxRows: 1000,
+        });
+        if (result && result.columns) {
+          this.sqlCols = result.columns; this.sqlRows = result.rows || [];
+          this.sqlMsg = '✔ 查询成功 · ' + result.rowCount + ' 行 · ' + (Date.now()-t0) + ' ms';
+        } else {
+          this.sqlMsg = '✔ 执行成功 · ' + (Date.now()-t0) + ' ms';
+          this.sqlResult = result;
+        }
+      } catch (e) {
+        this.sqlMsg = '✘ ' + e.message; this.sqlCols = []; this.sqlRows = [];
+        this.onAuthErr(e);
+      }
+      this.sqlLoading = false;
+    },
+    async tx(action) {
+      try {
+        const r = await this.invokeTool(action, { connectionId: String(this.sqlConnId) });
+        ElementPlus.ElMessage.success((r && r.message) || '事务操作成功');
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+    },
+
+    // ---- 命令 / Java ----
+    async loadCommands() {
+      try {
+        this.commandRows = await this.fetchJson('/api/meta/commands');
+        this.commandNames = (this.commandRows || []).map(c => c.name);
+      } catch (e) {}
+    },
+    async loadCmdToForm(name) {
+      try {
+        const r = await this.fetchJson('/api/tools/get-command/invoke', 'POST', false, { arguments: { name } });
+        // 优先用 get-command 工具；若无则从 meta 填充描述
+        ElementPlus.ElMessage.info('get-command 详情展示暂用命令列表信息');
+        const c = (this.commandRows||[]).find(x => x.name === name);
+        this.cmdForm = { name: name, description: c ? c.description : '', javaCode: '', jarPathsText: (c && c.jarPaths || []).join(',') };
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+    },
+    async saveCmd() {
+      if (!this.cmdForm.name) { ElementPlus.ElMessage.warning('请填写命令名'); return; }
+      try {
+        const args = {
+          name: this.cmdForm.name,
+          description: this.cmdForm.description || this.cmdForm.name,
+          javaCode: this.cmdForm.javaCode,
+          parameters: {}, // 简单起见使用空 schema，仅供注册
+        };
+        const jars = this.cmdForm.jarPathsText.split(',').map(s => s.trim()).filter(Boolean);
+        if (jars.length) args.jarPaths = jars;
+        await this.invokeTool('add-command', args);
+        ElementPlus.ElMessage.success('命令已保存并热重载');
+        this.cmdForm = { name:'', description:'', javaCode:'', jarPathsText:'' };
+        this.loadCommands(); this.loadTools();
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+    },
+    async deleteCommand(name) {
+      try {
+        await this.invokeTool('delete-command', { name: name });
+        ElementPlus.ElMessage.success('已删除命令');
+        this.loadCommands(); this.loadTools();
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+    },
+    async runJavaExec() {
+      this.javaExecResult = '';
+      try {
+        const args = { code: this.javaExecCode };
+        const jars = this.javaExecJars.split(',').map(s => s.trim()).filter(Boolean);
+        if (jars.length) args.jarPaths = jars;
+        const r = await this.invokeTool('java-exec', args);
+        this.javaExecResult = typeof r === 'string' ? r : JSON.stringify(r, null, 2);
+      } catch (e) { this.javaExecResult = '✘ ' + e.message; }
+    },
+
+    // ---- 项目文件 (dev) ----
+    async loadDevLs() {
+      try {
+        const tree = await this.invokeTool('dev_ls', { path: '/', maxDepth: 10 });
+        // 期望返回 { path, type:"dir"|"file", children:[...] } 结构
+        const root = tree || {};
+        this.buildDevTree(root);
+      } catch (e) {
+        this.devTree = []; ElementPlus.ElMessage.warning('dev_ls 不可用（仅开发模式）：' + e.message);
+      }
+    },
+    buildDevTree(data, depth = 0) {
+      const out = [];
+      const walk = (node, d) => {
+        if (!node || !node.path) return;
+        // 优先用后端显式 type；兼容旧结构（有 children 即目录）
+        const isDir = node.type === 'dir' || (node.type === undefined && Array.isArray(node.children));
+        const name = node.path.split('/').filter(Boolean).pop() || node.path;
+        out.push({ name, path: node.path, dir: isDir, depth: d });
+        (node.children || []).forEach(ch => walk(ch, d + 1));
+      };
+      walk(data, depth);
+      this.devTree = out;
+    },
+    async devClick(f) {
+      this.devPath = f.path; this.devDir = f.dir;
+      if (f.dir) { this.devContent = ''; return; }
+      try {
+        const r = await this.invokeTool('dev_get_file', { path: f.path });
+        this.devContent = (r && r.content) || String(r);
+      } catch (e) { this.devContent = '✘ ' + e.message; }
+    },
+    async devEditSave() {
+      try {
+        await this.invokeTool('dev_edit', { path: this.devPath, content: this.devContent });
+        ElementPlus.ElMessage.success('已保存（dev_edit）');
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+    },
+
+    onAuthErr(e) { if (/UNAUTHORIZED|401/.test(e.message)) { this.ready = false; this.info = { enabled: true, tokenConfigured: true }; ElementPlus.ElMessage.error('会话过期，请重新输入 Token'); } },
+  },
+  watch: {
+    page(v) {
+      if (v === 'log') { this.loadLog(); this.onLive(this.logLive); }
+      if (v === 'conn') { this.refreshMeta(); this.loadConnPool(); }
+      if (v === 'sql') { this.refreshMeta(); }
+      if (v === 'cmd') { this.loadCommands(); }
+      if (v === 'dev') { this.loadDevLs(); }
+    },
+  },
+});
+app.use(ElementPlus);
+  app.mount('#app');
+})();
+</script>
+</body>
+</html>

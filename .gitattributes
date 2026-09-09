@@ -1,0 +1,15 @@
+# 强制 start.sh 使用 LF 换行（mask 需 bash 解析，CRLF 会破坏）
+*.sh text eol=lf
+*.bat text eol=crlf
+
+# 文本文件统一按 UTF-8 处理
+*.java text
+*.html text
+*.js text
+*.css text
+*.json text
+*.xml text
+*.yaml text
+*.yml text
+*.properties text
+*.md text
