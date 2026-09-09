@@ -1,0 +1,75 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jvm:
+    name: Build JVM (${{ matrix.variant }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [jar, uber-jar]
+        include:
+          - variant: jar
+            args: ""
+            artifact_name: quarkus-run
+            artifact_path: target/quarkus-app/quarkus-run.jar
+          - variant: uber-jar
+            args: "-Dquarkus.package.jar.type=uber-jar"
+            artifact_name: runner-uber-jar
+            artifact_path: target/javatool-mcp-1.0.0-SNAPSHOT-runner.jar
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build (${{ matrix.variant }})
+        run: mvn -B -ntp package ${{ matrix.args }}
+
+      - name: Upload ${{ matrix.variant }} artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: javatool-mcp-${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+
+  native:
+    name: Build Native
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM (Mandrel 21)
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: mandrel
+          java-version: "21"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: maven
+
+      - name: Build native binary
+        run: mvn -B -ntp package -Dnative
+
+      - name: Upload native binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: javatool-mcp-native
+          path: target/javatool-mcp
+          if-no-files-found: error
