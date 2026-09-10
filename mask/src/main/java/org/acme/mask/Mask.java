@@ -32,13 +32,13 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>启动时若后端未就绪且存在启动脚本，自动调用脚本拉起后端并等待就绪（Windows 用 start.bat，
  * 其他系统用 start.sh）；启动方式由环境变量 BACKEND_LAUNCH_MODE 控制（source=mvn quarkus:dev /
- * jar=quarkus-run.jar / binary=native 二进制，默认 jar）。运行期间每 1s 向后端发送心跳
+ * jar=quarkus-run.jar，默认 jar）。运行期间每 1s 向后端发送心跳
  * （POST /api/heartbeat）；stdin 关闭（宿主退出）后等在途请求完成即退出，停止心跳后由后端
  * 看门狗（MASK_HEARTBEAT）在 3s 无包时自动关闭后端，避免 jar 进程残留。
  *
  * <p>环境变量：CONSOLE_PORT（默认 8080）、CONSOLE_TOKEN（必须）、
  * MASK_START_SCRIPT（默认按平台 start.bat/start.sh，相对 mask 工作目录）、
- * BACKEND_LAUNCH_MODE（source/jar/binary）。向拉起的后端注入 MCP_STDIN_KEEPALIVE=1
+ * BACKEND_LAUNCH_MODE（source/jar）。向拉起的后端注入 MCP_STDIN_KEEPALIVE=1
  * 与 MASK_HEARTBEAT=1（后端心跳看门狗开关，仅 mask 拉起场景生效）。
  * 日志一律走 stderr，不污染 stdout 协议。
  */
@@ -86,7 +86,7 @@ public class Mask {
 
     // ---------- 后端就绪保障 ----------
 
-    /** 探测后端；未就绪则调用 start.bat/start.sh（按平台选择，BACKEND_LAUNCH_MODE 决定 source/jar/binary）拉起并轮询等待。 */
+    /** 探测后端；未就绪则调用 start.bat/start.sh（按平台选择，BACKEND_LAUNCH_MODE 决定 source/jar）拉起并轮询等待。 */
     private static void ensureBackend() {
         if (probe()) {
             backendReady = true;
