@@ -44,9 +44,6 @@ mvn package
 # uber-jar（target/javatool-mcp-1.0.0-SNAPSHOT-runner.jar，包含所有依赖项）
 -Dquarkus.package.jar.type=uber-jar
 
-# native 二进制（target/javatool-mcp.exe，需 GraalVM + Windows VS Build Tools）
-mvn package -Dnative
-
 # mask 代理（mask/target/mcp-mask.jar，多实例接入用）
 mvn -f mask/pom.xml package
 ```
@@ -59,7 +56,6 @@ mvn -f mask/pom.xml package
 |------|------|------|
 | `source` | `mvn quarkus:dev` | 开发模式：热重载，注册全部 30 个工具（含 `dev_*`）；脚本已加 `-Ddebug=false -Dquarkus.dev.no-interactive` 保证 MCP stdio 兼容 |
 | `jar`（默认） | `java -jar target/quarkus-app/quarkus-run.jar` | 生产模式：注册 24 个工具（不含 `dev_*`），MCP 客户端的标准选择 |
-| `binary` | `target/javatool-mcp(.exe)` | 生产模式原生二进制：启动最快、内存最低，需 GraalVM 打包 |
 
 ```bash
 # 示例：以 jar 方式启动
@@ -123,7 +119,6 @@ macOS/Linux 配置同理：`command` 指向 `java`，`MASK_START_SCRIPT` 指向 
 
 - **源码启动**（`BACKEND_LAUNCH_MODE=source`，`mvn quarkus:dev`）：自动检测为开发模式，注册**全部 30 个工具**（含 `dev_*` 开发工具），支持热重载。为兼容 MCP stdio，脚本已禁用交互控制台与横幅、抑制 Maven 日志（`-q`）、禁用调试端口，stdout 干净、stdin 不被抢占，可直接作为 MCP 客户端进程
 - **jar 启动**（`BACKEND_LAUNCH_MODE=jar`）：自动检测为生产模式，注册 **24 个工具**（不含 `dev_*`），是 MCP 客户端的标准选择
-- **binary 启动**（`BACKEND_LAUNCH_MODE=binary`）：GraalVM 原生二进制，行为与 jar 模式一致（24 个工具），启动 <1s、内存约 20-40MB；需 GraalVM 工具链打包
 
 ## 配置
 

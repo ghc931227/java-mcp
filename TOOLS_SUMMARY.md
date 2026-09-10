@@ -787,18 +787,17 @@ Quarkus Dev 模式会监控以下变化：
 
 ## 脚本列表
 
-启动方式统一由项目根的 `start.sh`（Linux/Mac）/ `start.bat`（Windows）承载，通过环境变量 `BACKEND_LAUNCH_MODE` 选择三种子模式：
+启动方式统一由项目根的 `start.sh`（Linux/Mac）/ `start.bat`（Windows）承载，通过环境变量 `BACKEND_LAUNCH_MODE` 选择两种子模式：
 
 | 脚本 | 平台 | 说明 |
 |------|------|------|
-| `start.sh` | Linux/Mac | 源码 / jar / binary 三种启动模式，用 `BACKEND_LAUNCH_MODE` 切换 |
+| `start.sh` | Linux/Mac | 源码 / jar 两种启动模式，用 `BACKEND_LAUNCH_MODE` 切换 |
 | `start.bat` | Windows | 同上 |
 
 | `BACKEND_LAUNCH_MODE` | 启动方式 | 说明 |
 |------|------|------|
 | `source` | `mvn quarkus:dev` | 开发模式：热重载，注册全部 30 个工具（含 `dev_*`）；仅限本地终端调试 |
 | `jar`（默认） | `java -jar target/quarkus-app/quarkus-run.jar` | 生产模式：注册 24 个工具（不含 `dev_*`），MCP 客户端的标准选择 |
-| `binary` | `target/javatool-mcp(.exe)` | 生产模式原生二进制：启动最快、内存最低，需 GraalVM 打包 |
 
 ## 快速开始
 

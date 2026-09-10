@@ -48,28 +48,3 @@ jobs:
           name: javatool-mcp-${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
-
-  native:
-    name: Build Native
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up GraalVM (Mandrel 21)
-        uses: graalvm/setup-graalvm@v1
-        with:
-          distribution: mandrel
-          java-version: "21"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          cache: maven
-
-      - name: Build native binary
-        run: mvn -B -ntp package -Dnative
-
-      - name: Upload native binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: javatool-mcp-native
-          path: target/javatool-mcp
-          if-no-files-found: error
