@@ -3,10 +3,9 @@
 # JavaTool MCP backend launcher (used by mask and manually)
 # Backend launch mode is controlled by env BACKEND_LAUNCH_MODE:
 #   source - mvn quarkus:dev (dev mode, hot reload, debug disabled)
-#   jar    - java -jar thin target/quarkus-app/quarkus-run.jar, fallback uber-jar target/quarkus-run.jar (default)
-#   binary - target/javatool-mcp (GraalVM native image)
+#   jar    - java -jar thin target/quarkus-app/quarkus-run.jar, fallback uber-jar target/javatool-mcp-runner.jar (default)
 # Related env: CONSOLE_PORT, CONSOLE_TOKEN, DATA_DIR,
-#              JAVA_HOME (JDK 21), MAVEN_HOME (optional)
+#              JAVA_HOME (JDK 17), MAVEN_HOME (optional)
 # ============================================================
 cd "$(dirname "$0")" || exit 1
 
@@ -42,26 +41,17 @@ case "$(echo "$MODE" | tr '[:upper:]' '[:lower:]')" in
     fi
     exec "$MVN" -q quarkus:dev -Ddebug=false -Dquarkus.dev.no-interactive
     ;;
-  binary)
-    if [ ! -f "target/javatool-mcp" ]; then
-      echo "[start.sh] Native binary not found: target/javatool-mcp"
-      echo '[start.sh] Run "mvn package -Dnative" first, or set BACKEND_LAUNCH_MODE=jar'
-      exit 1
-    fi
-    echo "[start.sh] Launching backend in BINARY mode..."
-    exec target/javatool-mcp
-    ;;
   jar)
     JAVA_EXE="$(find_java)"
     if [ -z "$JAVA_EXE" ]; then
       echo "[start.sh] java not found (set JAVA_HOME or add to PATH)"
       exit 1
     fi
-    # 优先瘦 jar（quarkus-app 目录），不存在则回退 uber-jar（target/quarkus-run.jar）
+    # 优先瘦 jar（quarkus-app 目录），不存在则回退 uber-jar（target/javatool-mcp-runner.jar）
     RUN_JAR="target/quarkus-app/quarkus-run.jar"
-    [ -f "$RUN_JAR" ] || RUN_JAR="target/quarkus-run.jar"
+    [ -f "$RUN_JAR" ] || RUN_JAR="target/javatool-mcp-runner.jar"
     if [ ! -f "$RUN_JAR" ]; then
-      echo "[start.sh] Backend jar not found: target/quarkus-app/quarkus-run.jar (thin) or target/quarkus-run.jar (uber)"
+      echo "[start.sh] Backend jar not found: target/quarkus-app/quarkus-run.jar (thin) or target/javatool-mcp-runner.jar (uber)"
       echo '[start.sh] Run "mvn package" first, or set BACKEND_LAUNCH_MODE=source'
       exit 1
     fi

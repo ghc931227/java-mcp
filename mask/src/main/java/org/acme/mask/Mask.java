@@ -109,7 +109,7 @@ public class Mask {
             pb.environment().put("MCP_STDIN_KEEPALIVE", "1");
             // 启用后端心跳看门狗：后端 3s 收不到任何包（含本进程心跳）即自动退出
             pb.environment().put("MASK_HEARTBEAT", "1");
-            // mask 自身即 JDK21 启动，注入 JAVA_HOME 供脚本的 jar/source 模式使用
+            // mask 自身即 JDK17 启动，注入 JAVA_HOME 供脚本的 jar/source 模式使用
             pb.environment().put("JAVA_HOME", System.getProperty("java.home"));
             // 后端 stdout/stderr 不能桥接到 mask 的 stdout（stdout 是 MCP 协议通道）；日志已写 DATA_DIR/mcp.log
             pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);

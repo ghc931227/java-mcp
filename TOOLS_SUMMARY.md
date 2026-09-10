@@ -865,7 +865,7 @@ start.bat
 ❌ 错误: 未找到已打包的 JAR 文件
 路径: target/quarkus-app/quarkus-run.jar
 ```
-解决方案：先执行 `./mvnw package` 再启动。
+解决方案：先执行 `mvn package` 再启动。
 
 ### Q3: 如何确认当前工具集合
 **方法 1**：查看启动日志，会输出 `Dev tools enabled: true/false`（基于启动方式自动检测）。
@@ -907,8 +907,8 @@ CMD ["java", "-jar", "quarkus-run.jar"]
 ```
 
 ```bash
-# 1. 打包
-./mvnw package
+# 1. 打包（使用系统 Maven，本项目不依赖 Maven Wrapper）
+mvn package
 
 # 2. 构建镜像
 docker build -t javatool-mcp-server .
@@ -924,7 +924,7 @@ docker run -d \
 ## 最佳实践与安全建议
 
 1. **本地调试**：使用 `BACKEND_LAUNCH_MODE=source` 启动 `start.sh` / `start.bat` 在终端中调试，支持热重载
-2. **接入 MCP 客户端**：使用 `BACKEND_LAUNCH_MODE=jar`（或 binary）的生产模式
+2. **接入 MCP 客户端**：使用 `BACKEND_LAUNCH_MODE=jar` 的生产模式
 3. **安全配置**：生产环境必须设置自定义的 `JDBC_ENCRYPTION_KEY`
 4. **数据持久化**：确保 `JDBC_STORAGE_PATH` 指向持久化存储
 5. **日志管理**：日志输出到 stderr，生产环境建议重定向到文件

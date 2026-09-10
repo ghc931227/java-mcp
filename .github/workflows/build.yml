@@ -27,16 +27,16 @@ jobs:
           - variant: uber-jar
             args: "-Dquarkus.package.jar.type=uber-jar"
             artifact_name: runner-uber-jar
-            artifact_path: target/javatool-mcp-1.0.0-SNAPSHOT-runner.jar
+            artifact_path: target/javatool-mcp-runner.jar
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "17"
           cache: maven
 
       - name: Build (${{ matrix.variant }})

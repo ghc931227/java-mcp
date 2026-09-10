@@ -32,17 +32,18 @@
 
 ### 前置要求
 
-- **JDK 17+**（推荐 21）
+- **JDK 17**（构建与运行统一使用 JDK 17，CI 亦同）
 - **Maven 3.8+**
 - **MCP 客户端**（可选）
 
 ### 构建
 
 ```bash
-# 后端 jar（target/quarkus-app/quarkus-run.jar）
+# 瘦 jar（默认，target/quarkus-app/quarkus-run.jar）
 mvn package
-# uber-jar（target/javatool-mcp-1.0.0-SNAPSHOT-runner.jar，包含所有依赖项）
--Dquarkus.package.jar.type=uber-jar
+
+# uber-jar（单文件分发用，target/javatool-mcp-runner.jar，包含所有依赖项）
+mvn package -Dquarkus.package.jar.type=uber-jar
 
 # mask 代理（mask/target/mcp-mask.jar，多实例接入用）
 mvn -f mask/pom.xml package
@@ -50,7 +51,7 @@ mvn -f mask/pom.xml package
 
 ### 启动
 
-启动方式统一由项目根的 `start.bat`（Windows）/ `start.sh`（Linux/macOS）承载，通过环境变量 `BACKEND_LAUNCH_MODE` 选择三种子模式：
+启动方式统一由项目根的 `start.bat`（Windows）/ `start.sh`（Linux/macOS）承载，通过环境变量 `BACKEND_LAUNCH_MODE` 选择子模式（`source` / `jar`）：
 
 | `BACKEND_LAUNCH_MODE` | 启动方式 | 说明 |
 |------|------|------|
@@ -78,7 +79,7 @@ mask（`mask/target/mcp-mask.jar`）是一个极轻量的 stdio↔HTTP 桥接进
 {
   "mcpServers": {
     "javatool-mcp": {
-      "command": "D:/Soft/Java/jdk-21.0.8/bin/java.exe",
+      "command": "D:/Soft/Java/jdk-17.0.7/bin/java.exe",
       "args": ["-Xmx64m", "-jar", "D:/path/to/java-mcp/mask/target/mcp-mask.jar"],
       "env": {
         "CONSOLE_TOKEN": "123456",
@@ -99,7 +100,7 @@ mask（`mask/target/mcp-mask.jar`）是一个极轻量的 stdio↔HTTP 桥接进
 {
   "mcpServers": {
     "javatool-mcp": {
-      "command": "D:/Soft/Java/jdk-21.0.8/bin/java.exe",
+      "command": "D:/Soft/Java/jdk-17.0.7/bin/java.exe",
       "args": ["-Dfile.encoding=UTF-8", "-jar", "D:/path/to/java-mcp/target/quarkus-app/quarkus-run.jar"],
       "env": {
         "CONSOLE_TOKEN": "123456",
@@ -129,7 +130,7 @@ macOS/Linux 配置同理：`command` 指向 `java`，`MASK_START_SCRIPT` 指向 
 | `CONSOLE_PORT` | `8080` | Web 控制台端口（`http://localhost:<port>/console/`）；多实例共存时必须各自不同 |
 | `CONSOLE_TOKEN` | （空） | Web 控制台与 mask 的访问令牌；**未设置时 `/api/*` 全部返回 503**（控制台与 mask 均不可用） |
 | `DATA_DIR` | `./data` | 数据目录根，统一存放连接配置、命令存储、日志文件 |
-| `BACKEND_LAUNCH_MODE` | `jar` | 后端启动方式：`source` / `jar` / `binary`（由 start.bat/start.sh 与 mask 解析） |
+| `BACKEND_LAUNCH_MODE` | `jar` | 后端启动方式：`source` / `jar`（由 start.bat/start.sh 与 mask 解析；native `binary` 模式已废弃） |
 | `MASK_START_SCRIPT` | 按平台 `start.bat` / `start.sh` | mask 自动拉起后端时调用的脚本路径 |
 | `JDBC_ENCRYPTION_KEY` | （空） | 连接密码加密密钥；**可为空**，为空时密码明文存储 |
 | `JDBC_STORAGE_PATH` | `${DATA_DIR}/connections.yaml` | 连接配置存储（YAML） |
